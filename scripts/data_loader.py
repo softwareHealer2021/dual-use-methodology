@@ -102,3 +102,52 @@ def build_dualuse_features():
     )
 
     return cleaned, merged
+
+
+def build_training_features():
+    """
+    Returns:
+        cleaned_datasets -> dict of individual feature families
+        merged_df -> all feature families concatenated
+    """
+
+    datasets = load_training_datasets()
+
+    drop_cols = [
+        "filename",
+        "RG",
+        "family",
+        "ID"
+    ]
+
+    cleaned = {}
+
+    for name, df in datasets.items():
+
+        cleaned[name] = df.drop(
+            columns=[
+                c for c in drop_cols
+                if c in df.columns
+            ],
+            errors="ignore"
+        )
+
+    meta_cols = [
+        c
+        for c in ["ID", "RG", "filename"]
+        if c in datasets["header"].columns
+    ]
+
+    merged_df = pd.concat(
+        [
+            datasets["header"][meta_cols].reset_index(drop=True),
+
+            cleaned["header"].reset_index(drop=True),
+            cleaned["dll"].reset_index(drop=True),
+            cleaned["function"].reset_index(drop=True),
+            cleaned["entropy"].reset_index(drop=True)
+        ],
+        axis=1
+    )
+
+    return cleaned, merged_df

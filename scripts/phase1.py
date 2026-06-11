@@ -2,7 +2,7 @@ import pandas as pd
 
 from config import PHASE1_DIR
 
-from utils import safe_name, make_dir
+from utils import make_dir
 
 from data_loader import (
     load_training_datasets,
@@ -25,6 +25,10 @@ dual_datasets, dual_merged_X = build_dualuse_features()
 # =========================================================
 # PHASE 1
 # =========================================================
+
+phase1_dir = PHASE1_DIR
+
+make_dir(phase1_dir)
 
 phase1_results = []
 
@@ -52,12 +56,18 @@ phase1_datasets = {
 
 for dataset_name, (main_df, dualuse_df) in phase1_datasets.items():
 
-    print("\n")
-    print("=" * 80)
+    print("\n" + "=" * 80)
     print(f"PHASE 1 RUNNING → {dataset_name}")
     print("=" * 80)
 
     X, y = prepare_xy(main_df)
+
+    missing = set(X.columns) - set(dualuse_df.columns)
+
+    if missing:
+        raise ValueError(
+            f"Missing dual-use columns: {missing}"
+        )
 
     dualuse_X = dualuse_df[X.columns]
 
@@ -65,7 +75,7 @@ for dataset_name, (main_df, dualuse_df) in phase1_datasets.items():
         X=X,
         y=y,
         dataset_name=dataset_name,
-        phase_dir=PHASE1_DIR,
+        phase_dir=phase1_dir,
         dualuse_X=dualuse_X,
         extra_metadata={
             "Phase": "Phase 1",
@@ -85,16 +95,19 @@ phase1_summary_df = pd.concat(
     ignore_index=True
 )
 
-summary_path = (
-    PHASE1_DIR
-    / "summaries"
+summary_dir = make_dir(
+    phase1_dir / "summaries"
+)
+
+phase1_summary_path = (
+    summary_dir
     / "phase1_individual_feature_summary.csv"
 )
 
 phase1_summary_df.to_csv(
-    summary_path,
+    phase1_summary_path,
     index=False
 )
 
 print("\nPhase 1 summary saved:")
-print(summary_path)
+print(phase1_summary_path)
