@@ -79,6 +79,21 @@ dual-use-methodology/
 ### Prerequisites
 *   Python **`3.12.1`** (recommended)
 
+### Dependencies
+
+The required Python packages and their specific versions as defined in [requirements.txt](file:///d:/ZResearch/dual-use-methodology/requirements.txt) are:
+
+| Package | Version |
+| :--- | :--- |
+| `pandas` | `2.2.2` |
+| `numpy` | `2.0.2` |
+| `gdown` | `5.2.2` |
+| `scikit-learn` | `1.6.1` |
+| `xgboost` | `3.2.0` |
+| `lightgbm` | `4.6.0` |
+| `matplotlib` | `3.10.3` |
+| `shap` | `0.52.0` |
+
 ### Installation
 1.  **Clone the Repository**:
     ```bash
@@ -115,8 +130,11 @@ dual-use-methodology/
 
 ## Data Preparation
 
-1.  Download the preprocessed feature CSVs from the **Preprocessed Features Dataset** link.
-2.  Place the files in their corresponding directories under `data/` as shown in the **Directory Structure** section:
+1.  Navigate to the `dual-use-methodology` root folder and run the following command to download the preprocessed data from Google Drive:
+    ```bash
+    gdown --folder https://drive.google.com/drive/folders/1OiwYOi4FEkJsMHHBoqwuxEmBQkqWCbVF --output ./
+    ```
+2.  Ensure that the downloaded files are placed in their corresponding directories under `data/` as shown in the **Directory Structure** section:
     *   Place baseline datasets under `data/training/`
     *   Place dual-use datasets under `data/dualuse/`
     *   Place VERA active and Dike datasets under `data/cross_validation/`
