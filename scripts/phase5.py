@@ -1,76 +1,54 @@
-# =========================================================
-# PHASE 5 → STATISTICAL VALIDATION
-# Includes:
-#   1. Wilson confidence intervals
-#   2. McNemar's test
-#   3. Stratified k-fold cross-validation
-#   4. Paired t-test on fold-wise CV scores
-# =========================================================
+from pathlib import Path
 
-import os
 from os import path
-import numpy as np
+
 import pandas as pd
 
-from google.colab import drive
-
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
-
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
-
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score,
-    average_precision_score
+from config import (
+    PHASE5_DIR,
+    PHASE2_PREDICTIONS_DIR,
+    PHASE4_PREDICTIONS_DIR
 )
 
-from statsmodels.stats.proportion import proportion_confint
-from statsmodels.stats.contingency_tables import mcnemar
+from utils import make_dir
 
-from scipy.stats import ttest_rel
+from data_loader import (
+    build_training_features,
+    prepare_xy
+)
 
-phase5_summary_dir = make_dir(path.join(phase5_dir, "summaries"))
-phase5_tests_dir = make_dir(path.join(phase5_dir, "tests"))
-phase5_cv_dir = make_dir(path.join(phase5_dir, "kfold_cv"))
+from stats_utils import (
+    load_prediction_file,
+    build_wilson_row,
+    run_mcnemar_test,
+    run_kfold_cv,
+    paired_ttest_cv
+)
 
-phase2_pred_dir = path.join(RESULTS_ROOT, "phase2_merged", "predictions")
-phase4_pred_dir = path.join(RESULTS_ROOT, "phase4_cross_dataset", "predictions")
+phase5_dir = PHASE5_DIR
 
-print("Materials:", materials)
-print("Results root:", RESULTS_ROOT)
-print("Phase 5 output:", phase5_dir)
-print("Phase 2 prediction dir:", phase2_pred_dir)
-print("Phase 4 prediction dir:", phase4_pred_dir)
+phase5_summary_dir = make_dir(
+    phase5_dir / "summaries"
+)
 
-assert path.exists(phase2_pred_dir), f"Missing: {phase2_pred_dir}"
-assert path.exists(phase4_pred_dir), f"Missing: {phase4_pred_dir}"
+phase5_tests_dir = make_dir(
+    phase5_dir / "tests"
+)
 
+phase5_cv_dir = make_dir(
+    phase5_dir / "kfold_cv"
+)
 
-model_file_tokens = {
-    "Random Forest": "random_forest",
-    "XGBoost": "xgboost",
-    "LightGBM": "lightgbm",
-    "Logistic Regression": "logistic_regression",
-    "SVM": "svm"
-}
+phase2_pred_dir = PHASE2_PREDICTIONS_DIR
+phase4_pred_dir = PHASE4_PREDICTIONS_DIR
+
+assert phase2_pred_dir.exists()
+assert phase4_pred_dir.exists()
 
 # =========================================================
 # BUILD MERGED FEATURE DATASET
 # Same structure as Phase 2
 # =========================================================
-
-drop_feature_cols = ["ID", "RG", "filename", "family"]
-
-meta_cols = [c for c in ["ID", "RG", "filename"] if c in header_df.columns]
 
 _, merged_df = build_training_features()
 
@@ -85,7 +63,13 @@ print("y_merged:", y_merged.shape)
 print("Class distribution:")
 print(y_merged.value_counts())
 
-
+model_file_tokens = {
+    "Random Forest": "random_forest",
+    "XGBoost": "xgboost",
+    "LightGBM": "lightgbm",
+    "Logistic Regression": "logistic_regression",
+    "SVM": "svm"
+}
 
 # =========================================================
 # PART 1 → WILSON 95% CONFIDENCE INTERVALS
@@ -100,18 +84,25 @@ for model_name, token in model_file_tokens.items():
 
     # Internal baseline recall
     try:
-        internal_df, internal_path = load_prediction_file("internal", token)
+        internal_df, internal_path = load_prediction_file(
+    		dataset_type="internal",
+    		model_token=token,
+    		phase2_pred_dir=phase2_pred_dir,
+    		phase4_pred_dir=phase4_pred_dir
+	    )
 
         tp = int(((internal_df["y_true"] == 1) & (internal_df["y_pred"] == 1)).sum())
         fn = int(((internal_df["y_true"] == 1) & (internal_df["y_pred"] == 0)).sum())
 
-        add_wilson_row(
-            dataset="Internal Baseline Test",
-            model=model_name,
-            metric="Ransomware Recall",
-            successes=tp,
-            total=tp + fn,
-            file_path=internal_path
+        wilson_rows.append(
+            build_wilson_row(
+                dataset="Internal Baseline Test",
+                model=model_name,
+                metric="Ransomware Recall",
+                successes=tp,
+                total=tp + fn,
+                file_path=internal_path
+            )
         )
 
     except Exception as e:
@@ -119,18 +110,25 @@ for model_name, token in model_file_tokens.items():
 
     # Dual-use FPR
     try:
-        dual_df, dual_path = load_prediction_file("dualuse", token)
+        dual_df, dual_path = load_prediction_file(
+            dataset_type="dualuse",
+            model_token=token,
+            phase2_pred_dir=phase2_pred_dir,
+            phase4_pred_dir=phase4_pred_dir
+        )
 
         fp = int(((dual_df["y_true"] == 0) & (dual_df["y_pred"] == 1)).sum())
         tn = int(((dual_df["y_true"] == 0) & (dual_df["y_pred"] == 0)).sum())
 
-        add_wilson_row(
-            dataset="Dual-use Benign",
-            model=model_name,
-            metric="Dual-use FPR",
-            successes=fp,
-            total=fp + tn,
-            file_path=dual_path
+        wilson_rows.append(
+            build_wilson_row(
+                dataset="Dual-use Benign",
+                    model=model_name,
+                    metric="Dual-use FPR",
+                    successes=fp,
+                    total=fp + tn,
+                    file_path=dual_path
+            )
         )
 
     except Exception as e:
@@ -138,37 +136,52 @@ for model_name, token in model_file_tokens.items():
 
     # VERA external recall
     try:
-        vera_df, vera_path = load_prediction_file("vera", token)
+        vera_df, vera_path = load_prediction_file(
+            dataset_type="vera",
+            model_token=token,
+            phase2_pred_dir=phase2_pred_dir,
+            phase4_pred_dir=phase4_pred_dir
+        )
 
         tp = int(((vera_df["y_true"] == 1) & (vera_df["y_pred"] == 1)).sum())
         fn = int(((vera_df["y_true"] == 1) & (vera_df["y_pred"] == 0)).sum())
-
-        add_wilson_row(
-            dataset="VERA Active",
-            model=model_name,
-            metric="External Detection Rate / Recall",
-            successes=tp,
-            total=tp + fn,
-            file_path=vera_path
+	
+        wilson_rows.append(
+            build_wilson_row(
+                dataset="VERA Active",
+                    model=model_name,
+                    metric="External Detection Rate / Recall",
+                    successes=tp,
+                    total=tp + fn,
+                    file_path=vera_path
+            )
         )
+
 
     except Exception as e:
         print(f"Skipped VERA CI for {model_name}: {e}")
 
     # Dike external benign FPR
     try:
-        dike_df, dike_path = load_prediction_file("dike", token)
+        dike_df, dike_path = load_prediction_file(
+            dataset_type="dike",
+            model_token=token,
+            phase2_pred_dir=phase2_pred_dir,
+            phase4_pred_dir=phase4_pred_dir
+        )
 
         fp = int(((dike_df["y_true"] == 0) & (dike_df["y_pred"] == 1)).sum())
         tn = int(((dike_df["y_true"] == 0) & (dike_df["y_pred"] == 0)).sum())
 
-        add_wilson_row(
-            dataset="DikeDataset Benign PE",
-            model=model_name,
-            metric="External Benign FPR",
-            successes=fp,
-            total=fp + tn,
-            file_path=dike_path
+        wilson_rows.append(
+            build_wilson_row(
+                dataset="DikeDataset Benign PE",
+                model=model_name,
+                metric="External Benign FPR",
+                successes=fp,
+                total=fp + tn,
+                file_path=dike_path
+            )
         )
 
     except Exception as e:
@@ -187,7 +200,7 @@ wilson_df.to_csv(wilson_path, index=False)
 print("\nWilson confidence intervals saved:")
 print(wilson_path)
 
-display(wilson_df)
+print(wilson_df)
 
 
 # =========================================================
@@ -219,8 +232,18 @@ mcnemar_rows = []
 
 for dataset_type, dataset_name, model_a, token_a, model_b, token_b in comparisons:
     try:
-        df_a, path_a = load_prediction_file(dataset_type, token_a)
-        df_b, path_b = load_prediction_file(dataset_type, token_b)
+        df_a, path_a = load_prediction_file(
+            dataset_type=dataset_type,
+            model_token=token_a,
+            phase2_pred_dir=phase2_pred_dir,
+            phase4_pred_dir=phase4_pred_dir
+        )
+        df_b, path_b = load_prediction_file(
+            dataset_type=dataset_type,
+            model_token=token_b,
+            phase2_pred_dir=phase2_pred_dir,
+            phase4_pred_dir=phase4_pred_dir
+        )
 
         row = run_mcnemar_test(
             df_a=df_a,
@@ -253,7 +276,7 @@ mcnemar_df.to_csv(mcnemar_path, index=False)
 print("\nMcNemar tests saved:")
 print(mcnemar_path)
 
-display(mcnemar_df)
+print(mcnemar_df)
 
 
 # =========================================================
@@ -278,7 +301,7 @@ cv_results_df.to_csv(cv_results_path, index=False)
 print("\nK-fold CV fold-wise results saved:")
 print(cv_results_path)
 
-display(cv_results_df)
+print(cv_results_df)
 
 
 # =========================================================
@@ -321,7 +344,7 @@ cv_summary_df.to_csv(cv_summary_path, index=False)
 print("\nK-fold CV summary saved:")
 print(cv_summary_path)
 
-display(cv_summary_df)
+print(cv_summary_df)
 
 
 # =========================================================
@@ -374,7 +397,7 @@ ttest_df.to_csv(ttest_path, index=False)
 print("\nPaired t-tests saved:")
 print(ttest_path)
 
-display(ttest_df)
+print(ttest_df)
 
 
 # =========================================================
@@ -412,7 +435,7 @@ key_ci_df.to_csv(key_ci_path, index=False)
 print("\nPaper-ready key CI table saved:")
 print(key_ci_path)
 
-display(key_ci_df)
+print(key_ci_df)
 
 
 key_mcnemar_df = mcnemar_df[
@@ -439,7 +462,7 @@ key_mcnemar_df.to_csv(key_mcnemar_path, index=False)
 print("\nPaper-ready McNemar table saved:")
 print(key_mcnemar_path)
 
-display(key_mcnemar_df)
+print(key_mcnemar_df)
 
 
 key_ttest_df = ttest_df[
@@ -466,7 +489,7 @@ key_ttest_df.to_csv(key_ttest_path, index=False)
 print("\nPaper-ready paired t-test table saved:")
 print(key_ttest_path)
 
-display(key_ttest_df)
+print(key_ttest_df)
 
 
 print("\n" + "=" * 80)
