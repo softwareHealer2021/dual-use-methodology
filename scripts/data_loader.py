@@ -151,3 +151,55 @@ def build_training_features():
     )
 
     return cleaned, merged_df
+
+def build_external_feature_matrix(
+    header_df,
+    dll_df,
+    function_df,
+    entropy_df,
+    training_columns
+):
+    drop_cols = [
+        "ID",
+        "RG",
+        "filename",
+        "family",
+        "label"
+    ]
+
+    header_X = header_df.drop(
+        columns=drop_cols,
+        errors="ignore"
+    )
+
+    dll_X = dll_df.drop(
+        columns=drop_cols,
+        errors="ignore"
+    )
+
+    function_X = function_df.drop(
+        columns=drop_cols,
+        errors="ignore"
+    )
+
+    entropy_X = entropy_df.drop(
+        columns=drop_cols,
+        errors="ignore"
+    )
+
+    merged_X = pd.concat(
+        [
+            header_X.reset_index(drop=True),
+            dll_X.reset_index(drop=True),
+            function_X.reset_index(drop=True),
+            entropy_X.reset_index(drop=True)
+        ],
+        axis=1
+    )
+
+    merged_X = merged_X.reindex(
+        columns=training_columns,
+        fill_value=0
+    )
+
+    return merged_X
