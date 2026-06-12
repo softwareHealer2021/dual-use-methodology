@@ -42,8 +42,29 @@ phase5_cv_dir = make_dir(
 phase2_pred_dir = PHASE2_PREDICTIONS_DIR
 phase4_pred_dir = PHASE4_PREDICTIONS_DIR
 
-assert phase2_pred_dir.exists()
-assert phase4_pred_dir.exists()
+missing_prediction_dirs = [
+    required_dir
+    for required_dir in [
+        phase2_pred_dir,
+        phase4_pred_dir
+    ]
+    if not required_dir.exists()
+]
+
+if missing_prediction_dirs:
+    missing_text = "\n".join(
+        f"- {required_dir}"
+        for required_dir in missing_prediction_dirs
+    )
+
+    raise FileNotFoundError(
+        "Phase 5 requires saved prediction files from Phase 2 and Phase 4.\n"
+        "Run these first from the project root:\n"
+        "  python scripts/phase2_merged.py\n"
+        "  python scripts/phase4.py\n\n"
+        "Missing prediction directories:\n"
+        f"{missing_text}"
+    )
 
 # =========================================================
 # BUILD MERGED FEATURE DATASET
