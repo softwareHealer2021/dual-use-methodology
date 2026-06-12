@@ -39,6 +39,49 @@ PHASE2B_DIR = RESULTS_DIR / "phase2b_ablation"
 PHASE2_PREDICTIONS_DIR = PHASE2_DIR / "predictions"
 PHASE3_DIR = RESULTS_DIR / "phase3_feature_selection"
 PHASE4_DIR = RESULTS_DIR / "phase4_cross_dataset"
+CROSS_DATASET_DIR = (
+    DATA_DIR / "cross_validation"
+)
 PHASE4_PREDICTIONS_DIR = PHASE4_DIR / "predictions"
 PHASE5_DIR = RESULTS_DIR / "phase5_statistical_validation"
+PHASE5_SUMMARIES_DIR = (
+    PHASE5_DIR / "summaries"
+)
+
+PHASE5_TESTS_DIR = (
+    PHASE5_DIR / "tests"
+)
+
+PHASE5_CV_DIR = (
+    PHASE5_DIR / "kfold_cv"
+)
+PHASE6_DIR = RESULTS_DIR / "phase6_shap_analysis"
+PHASE6_MERGED_XGBOOST_DIR = (
+    PHASE6_DIR / "merged_xgboost"
+)
+PHASE6_NO_ENTROPY_XGBOOST_DIR = (
+    PHASE6_DIR / "all_minus_entropy_xgboost"
+)
+PHASE7_DIR = RESULTS_DIR / "phase7_confidence_gating"
+PHASE7_METRICS_DIR = (
+    PHASE7_DIR / "metrics"
+)
+PHASE7_THRESHOLD_DIR = (
+    PHASE7_DIR / "threshold_grids"
+)
+PHASE7_PREDICTIONS_DIR = (
+    PHASE7_DIR / "predictions"
+)
+PHASE7_CURVES_DIR = (
+    PHASE7_DIR / "curves"
+)
+PHASE7_ROC_DIR = (
+    PHASE7_CURVES_DIR / "roc"
+)
+PHASE7_PR_DIR = (
+    PHASE7_CURVES_DIR / "pr"
+)
+PHASE7_SUMMARIES_DIR = (
+    PHASE7_DIR / "summaries"
+)
 FINAL_DIR = RESULTS_DIR / "final_summary"
